@@ -66,11 +66,25 @@ async function check_if_uni_exists(universidade){
     }
 }
 
+async function modify_faculdade(id,data){
+    try{
+        var modificado = await faculdade.findByIdAndUpdate({_id:mongoose.Types.ObjectId(id)}, data, {new:true})
+        if(modificado == null){
+            return false;
+        }
+        await modificado.save();
+        return true;
+    }catch(e){
+        console.log(e);
+    }
+}
+
 module.exports = { 
     start_mongo, 
     add_faculdade,
     remove_all_faculdades,
     get_faculdades,
     get_faculdade_id,
-    check_if_uni_exists
+    check_if_uni_exists,
+    modify_faculdade
 }

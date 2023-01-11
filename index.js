@@ -102,6 +102,33 @@ app.post('/universities', async(req, res) => {
     res.status(200).send("Faculdade inserida com sucesso!");
 })
 
+// put para atualizar uma universidade, pode alterar web_pages, name e domains
+app.put('/universities/:id', async(req, res) => {
+    const data = req.body;
+    const id = req.params.id;
+
+    if(data == undefined || data == null){
+        res.status(400).send("Favor incluir os dados!");
+        return;
+    }
+
+    // verifica se os dados são arrays, caso não sejam, são corrigidos para o padrão do BD
+    if( typeof(data.web_pages) == "string" ){
+        data.web_pages = [data.web_pages]
+    }
+    if( typeof(data.domains) == "string" ){
+        data.domains = [data.domains]
+    }
+
+    result = await mongoDB.modify_faculdade(id,data);
+
+    if (result){
+        res.status(200).send("Dados salvos!");
+    }else{
+        res.status(400).send("ID não encontrado!");
+    }
+    
+})
 
 app.listen(port, () => {
   console.log(`Server de teste para Bis2Bis rodando na porta ${port}`)
