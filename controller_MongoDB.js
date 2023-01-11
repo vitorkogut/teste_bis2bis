@@ -52,10 +52,15 @@ async function get_faculdades(filtro, pagina_atual){
     return result;
 }
 
+async function get_faculdade_id(id){
+    var result = await faculdade.findById({_id: mongoose.Types.ObjectId(id)});
+    return result;
+}
 
 module.exports = { 
     start_mongo, 
     add_faculdade,
     remove_all_faculdades,
-    get_faculdades
+    get_faculdades,
+    get_faculdade_id
 }

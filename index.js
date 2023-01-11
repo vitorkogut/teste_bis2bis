@@ -56,6 +56,11 @@ app.get('/universities', async(req, res) => {
     
 })
 
+app.get('/universities/:_id', async(req, res) => {
+    var resultado = await mongoDB.get_faculdade_id(req.params._id);
+    res.send(resultado);
+})
+
 app.listen(port, () => {
   console.log(`Server de teste para Bis2Bis rodando na porta ${port}`)
 })
