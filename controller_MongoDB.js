@@ -57,10 +57,20 @@ async function get_faculdade_id(id){
     return result;
 }
 
+async function check_if_uni_exists(universidade){
+    var result = await faculdade.find({country:universidade.country, state_province:universidade.state_province, name:universidade.name});
+    if(result.length == 0){
+        return false;
+    }else{
+        return true;
+    }
+}
+
 module.exports = { 
     start_mongo, 
     add_faculdade,
     remove_all_faculdades,
     get_faculdades,
-    get_faculdade_id
+    get_faculdade_id,
+    check_if_uni_exists
 }
