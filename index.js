@@ -6,7 +6,7 @@ const { json } = require('body-parser')
 const app = express()
 const port = 3000
 
-// Funções do express para lifar com JSON no post
+// Funções do express para lidar com JSON no post
 app.use(express.json({limit:'1mb'}))
 
 // inicialização do mongoDB
@@ -62,7 +62,7 @@ app.get('/universities', async(req, res) => {
     
 })
 
-// get ded faculdade por id
+// get de faculdade por id
 app.get('/universities/:_id', async(req, res) => {
     var resultado = await mongoDB.get_faculdade_id(req.params._id);
     res.send(resultado);
@@ -128,6 +128,13 @@ app.put('/universities/:id', async(req, res) => {
         res.status(400).send("ID não encontrado!");
     }
     
+})
+
+// remoção de faculdade do BD por ID
+app.delete('/universities/:id', async(req, res) => {
+    const id = req.params.id;
+    await mongoDB.delete_faculdade(id);
+    res.status(200).send("Faculdade removida!");
 })
 
 app.listen(port, () => {
