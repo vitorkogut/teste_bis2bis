@@ -3,42 +3,50 @@ const request = require('request')
 const bodyParser = require('body-parser')
 var mongoDB = require("./controller_MongoDB")
 const { json } = require('body-parser')
+var schedule = require('node-schedule');
+const basicAuth = require('express-basic-auth')
+
+
 const app = express()
 const port = 3000
 
-// Funções do express para lidar com JSON no post
+
+// Schedules
+var schedule_1 = schedule.scheduleJob('30 19 * * *', async function(){  // Atualizar o banco todo dia as 19:30
+    const result = await update_BD();
+    if(result == "OK"){
+        console.log("Faculdades atualizadas automaticamente!");
+    }else{
+        console.log("Erro ao atualizar faculdades automaticamente!");
+    }
+});
+
+// Configs do Express
 app.use(express.json({limit:'1mb'}))
+app.use(basicAuth({ authorizer: basicAuthorizer, authorizeAsync: true, unauthorizedResponse: getUnauthorizedResponse }))
+
+async function basicAuthorizer(username, password, cb) {
+    return cb(null,false);
+}
+function getUnauthorizedResponse(req) {
+    return req.auth
+        ? ('Credentials ' + req.auth.user + ':' + req.auth.password + ' rejected')
+        : 'No credentials provided'
+}
 
 // inicialização do mongoDB
 mongoDB.start_mongo();
 
 
 // ROTAS DA API
-
 // rota para atualizar/obter dados das faculdades
-app.get('/getFaculdades', (req, res) => {
-    mongoDB.remove_all_faculdades(); // limpa a collection de dados antigos
-    const paises = ["argentina","brazil","chile","colombia","paraguai","peru","suriname","uruguay"]
-    const base_url = "http://universities.hipolabs.com/search?country="
-
-    paises.forEach(pais => { // para cada pais da lista
-        var lista_faculdades = [];
-
-        request(base_url+pais,{json:true}, (error, res, body) => { // obtenção das faculdades via JSON
-            if (error) {
-                return  console.log(error);
-            };
-            if (!error && res.statusCode == 200) { // caso não tenha erro na request
-
-                lista_faculdades = body; 
-                lista_faculdades.forEach(faculdade =>{ // adiciona cada uma das faculdades no Mongo
-                    var result = mongoDB.add_faculdade(faculdade);
-                    if(result == false){console.log("\nERRO AO INSERIR FACULDADE DO " + pais)}
-                });
-            };
-        });
-    });
-    res.send('Dados das faculdades obtidos!');
+app.get('/getFaculdades', async (req, res)  => {
+    const result = await update_BD();
+    if(result == "OK"){
+        res.status(200).send("Faculdades atualizadas!");
+    }else{
+        res.status(500).send(result);
+    }
 })
 
 // get de faculdades com filtro para pais e paginação |country=XXX & page=XXX|
@@ -97,13 +105,14 @@ app.post('/universities', async(req, res) => {
         return;
     }
     
+    data.manual_insert = true; // indica que a faculdade foi inserida manualmente
     await mongoDB.add_faculdade(data);
 
     res.status(200).send("Faculdade inserida com sucesso!");
 })
 
 // put para atualizar uma universidade, pode alterar web_pages, name e domains
-app.put('/universities/:id', async(req, res) => {
+app.put('/universities/:id', basicAuthorizer,  async(req, res) => {
     const data = req.body;
     const id = req.params.id;
 
@@ -120,6 +129,7 @@ app.put('/universities/:id', async(req, res) => {
         data.domains = [data.domains]
     }
 
+    data.modified = true; // indica que a faculdade foi modificada manualmente
     result = await mongoDB.modify_faculdade(id,data);
 
     if (result){
@@ -140,3 +150,30 @@ app.delete('/universities/:id', async(req, res) => {
 app.listen(port, () => {
   console.log(`Server de teste para Bis2Bis rodando na porta ${port}`)
 })
+
+
+async function update_BD(){
+    await mongoDB.remove_automatic_faculdades(); // limpa a collection de dados antigos
+    const paises = ["argentina","brazil","chile","colombia","paraguai","peru","suriname","uruguay"]
+    const base_url = "http://universities.hipolabs.com/search?country="
+
+    paises.forEach(async pais => { // para cada pais da lista
+        var lista_faculdades = [];
+
+        request(base_url+pais,{json:true}, async (error, res, body) => { // obtenção das faculdades via JSON
+            if (error) {
+                return('Erro ao obter dados! ' + error );
+            };
+            if (!error && res.statusCode == 200) { // caso não tenha erro na request
+                lista_faculdades = body; 
+                lista_faculdades.forEach(async faculdade =>{ // adiciona cada uma das faculdades no Mongo
+                    if( await mongoDB.check_if_uni_exists(faculdade) == false){ // confere se a faculdade não ficou por ser manual ou modificada
+                        var result = await mongoDB.add_faculdade(faculdade);
+                        if(result == false){console.log("\nERRO AO INSERIR FACULDADE DO " + pais)}
+                    }
+                });
+            };
+        });
+    });
+    return"OK";
+}

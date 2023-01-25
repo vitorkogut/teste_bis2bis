@@ -26,7 +26,10 @@ const faculdadeSchema = new mongoose.Schema({ // schema do modelo "faculdade"
     alpha_two_code : String,
     name : String,
     country : String,
-    domains : [String]
+    domains : [String],
+    modified: {type:Boolean, default:false},
+    manual_insert: {type:Boolean, default:false},
+    last_update:{type:Date, default:Date.now}
 })
 const faculdade = mongoose.model("faculdade", faculdadeSchema); // model da faculdade
 
@@ -48,6 +51,15 @@ async function add_faculdade(nova_faculdade){
 async function remove_all_faculdades(){
     try{
         await faculdade.deleteMany({});
+    }catch(e){
+        console.log(e);
+    }
+}
+
+// remove apenas as faculdades obtidas automaticamente
+async function remove_automatic_faculdades(){
+    try{
+        await faculdade.deleteMany({modified:false,manual_insert:false});
     }catch(e){
         console.log(e);
     }
@@ -78,10 +90,10 @@ async function get_faculdade_id(id){
 async function check_if_uni_exists(universidade){
     try{
         var result = await faculdade.find({country:universidade.country, state_province:universidade.state_province, name:universidade.name});
-        if(result.length == 0){
-            return false;
-        }else{
+        if(result.length){
             return true;
+        }else{
+            return false;
         }
     }catch(e){
         console.log(e);
@@ -90,6 +102,7 @@ async function check_if_uni_exists(universidade){
 
 // função para modificar faculdade com base no ID, qualquer campo pode ser inserido no "data" (Dados devem ser previmante verificados)
 async function modify_faculdade(id,data){
+    data.last_update = Date.now()
     try{
         var modificado = await faculdade.findByIdAndUpdate({_id:mongoose.Types.ObjectId(id)}, data, {new:true})
         if(modificado == null){
@@ -115,6 +128,7 @@ module.exports = {
     start_mongo, 
     add_faculdade,
     remove_all_faculdades,
+    remove_automatic_faculdades,
     get_faculdades,
     get_faculdade_id,
     check_if_uni_exists,
