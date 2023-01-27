@@ -170,7 +170,7 @@ app.post('/universities', async(req, res) => {
 })
 
 // put para atualizar uma universidade, pode alterar web_pages, name e domains
-app.put('/universities/:id', basicAuthorizer,  async(req, res) => {
+app.put('/universities/:id',  async(req, res) => {
     const data = req.body;
     const id = req.params.id;
 
