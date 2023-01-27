@@ -33,8 +33,48 @@ const faculdadeSchema = new mongoose.Schema({ // schema do modelo "faculdade"
 })
 const faculdade = mongoose.model("faculdade", faculdadeSchema); // model da faculdade
 
+const userSchema= new mongoose.Schema({
+    username:{type:String, required:true, unique:true},
+    password:{type:String, required:true},
+    createdAt:{type:Date, default:Date.now}
+})
+const usuario = mongoose.model("usuario",userSchema);
 
 // FUNÇÔES
+// procura User por username
+async function getUserByUsername(username){
+    try{
+        result = usuario.findOne({username:username});
+        if(result){
+            return result;
+        }else{
+            return null;
+        }
+    }catch(e){
+        console.log(e)
+    }
+}
+
+//adiciona novo user
+async function add_user(userBody){
+    try{
+        const novo_user = await new usuario(userBody);
+        await novo_user.save();
+        return true;
+    }catch(e){
+        console.log(e);
+        return false;
+    }
+}
+
+async function modify_user(id,newPass){
+    try{
+        await usuario.findByIdAndUpdate({_id:id}, {password:newPass}, {new:true})
+    }catch(e){
+        console.log(e)
+    }
+}
+
 // função para adicionar uma nova faculdade (Dados devem ser previmante verificados)
 async function add_faculdade(nova_faculdade){
     try{
@@ -133,5 +173,8 @@ module.exports = {
     get_faculdade_id,
     check_if_uni_exists,
     modify_faculdade,
-    delete_faculdade
+    delete_faculdade,
+    getUserByUsername,
+    add_user,
+    modify_user
 }

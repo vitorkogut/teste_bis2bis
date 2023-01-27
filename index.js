@@ -5,7 +5,8 @@ var mongoDB = require("./controller_MongoDB")
 const { json } = require('body-parser')
 var schedule = require('node-schedule');
 const basicAuth = require('express-basic-auth')
-
+const bcrypt = require('bcrypt')
+const { mongo } = require('mongoose')
 
 const app = express()
 const port = 3000
@@ -25,13 +26,29 @@ var schedule_1 = schedule.scheduleJob('30 19 * * *', async function(){  // Atual
 app.use(express.json({limit:'1mb'}))
 app.use(basicAuth({ authorizer: basicAuthorizer, authorizeAsync: true, unauthorizedResponse: getUnauthorizedResponse }))
 
+// autorizador async
 async function basicAuthorizer(username, password, cb) {
-    return cb(null,false);
+    if(username == "adm" && password=="adm"){ // gambiarra pra acessar com o banco vazio, favor não colocar em produção
+        return cb(null,true);
+    }
+
+    var this_user = await mongoDB.getUserByUsername(username);
+    if(this_user == null){
+        return cb(null,false);
+    }
+    const result = await bcrypt.compare(password,this_user.password);
+
+    if(result){
+        return cb(null,true);
+    }else{
+        return cb(null,false);
+    }
+    
 }
 function getUnauthorizedResponse(req) {
     return req.auth
-        ? ('Credentials ' + req.auth.user + ':' + req.auth.password + ' rejected')
-        : 'No credentials provided'
+        ? ('Credenciais ' + req.auth.user + ':' + req.auth.password + ' rejeitadas!')
+        : 'Nenhum dado de usuario inserido'
 }
 
 // inicialização do mongoDB
@@ -39,6 +56,48 @@ mongoDB.start_mongo();
 
 
 // ROTAS DA API
+//adiciona usuario
+app.post('/addUser', async (req,res) =>{
+    const data = req.body;
+
+    if(data == undefined || data == null){
+        res.status(400).send("Favor incluir os dados!");
+        return;
+    }
+    if(data.username==undefined || data.password==undefined){
+        res.status(400).send("Favor verificar os campos sendo enviados!");
+        return;
+    }
+
+    data.password = await encryptPass(data.password);
+    const result = await mongoDB.add_user(data);
+
+    if(result){
+        res.status(200).send("Usuario inserido com sucesso!");
+    }else{
+        res.status(500).send("Erro ao inserir usuario!");
+    }
+})
+
+//mudar senha de user
+app.post('/modifyUser', async (req,res) =>{
+    const data = req.body;
+    var this_user = await mongoDB.getUserByUsername(data.username);
+    
+    if(this_user == null){
+        res.status(400).send("usuario não encontrado!");
+    }
+
+    if(req.auth.user != data.username){ // apenas se o user estiver logado pode mudar sua senha
+        res.status(400).send("Voce não tem essa permissão!");
+    }
+
+    var nova_senha = await encryptPass(data.password);
+
+    await mongoDB.modify_user(this_user._id,nova_senha);
+    res.status(200).send("Senha modificada!");
+})
+
 // rota para atualizar/obter dados das faculdades
 app.get('/getFaculdades', async (req, res)  => {
     const result = await update_BD();
@@ -67,7 +126,6 @@ app.get('/universities', async(req, res) => {
         var resultado = await mongoDB.get_faculdades({}, pagina_atual);
         res.send(resultado);
     }
-    
 })
 
 // get de faculdade por id
@@ -176,4 +234,10 @@ async function update_BD(){
         });
     });
     return"OK";
+}
+
+async function encryptPass(password){
+    const noise = await bcrypt.genSalt(8);
+    const encrypet_pass = await bcrypt.hash(password,noise);
+    return encrypet_pass;
 }
